@@ -5,17 +5,16 @@ plugins {
 
 android {
     namespace = "com.example.ffmpegterm"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.ffmpegterm"
         minSdk = 24
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
-        // Enable multidex support if needed
-        // multiDexEnabled = true
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -25,7 +24,6 @@ android {
         }
     }
 
-    // Configure Kotlin options
     kotlinOptions {
         jvmTarget = "1.8"
     }
@@ -53,24 +51,26 @@ android {
 }
 
 dependencies {
+    // FFmpeg Kit - 完整编解码器支持，Android 原生
+    implementation("com.arthenica:ffmpeg-kit-full:6.0-2")
+
+    // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.7.10")
 
-    // AndroidX Core
+    // AndroidX
     implementation("androidx.core:core-ktx:1.10.1")
-
-    // AppCompat
     implementation("androidx.appcompat:appcompat:1.6.1")
-
-    // Material Design 3
     implementation("com.google.android.material:material:1.9.0")
-
-    // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.1")
 
-    // Lifecycle (ViewModel + LiveData)
+    // Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.1")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // Multidex
+    implementation("androidx.multidex:multidex:2.0.1")
+}
 }
