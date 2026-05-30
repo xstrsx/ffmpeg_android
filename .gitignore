@@ -10,5 +10,5 @@
 local.properties
 /app/build
 
-# 不要忽略 jniLibs 里的原生库
-!app/src/main/jniLibs/**/*.so
+# jniLibs .so 由 CI 自动从 Termux 下载生成，不提交到仓库
+/app/src/main/jniLibs/

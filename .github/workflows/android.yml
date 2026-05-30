@@ -24,9 +24,37 @@ jobs:
 
       - name: Generate Gradle Wrapper
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq gradle
+          sudo apt-get update -qq && sudo apt-get install -y -qq gradle binutils
           gradle wrapper --gradle-version 7.6.4
           chmod +x ./gradlew
+
+      - name: Download Termux FFmpeg
+        run: |
+          TERMUX_URL="https://packages.termux.dev/apt/termux-main/pool/main/f/ffmpeg"
+
+          # 下载 arm64 ffmpeg (.deb)
+          curl -L -o ffmpeg_arm64.deb "$TERMUX_URL/ffmpeg_8.1.1-1_aarch64.deb"
+          mkdir -p jni_arm64 && dpkg-deb -x ffmpeg_arm64.deb jni_arm64/
+
+          # 下载 arm (armeabi-v7a) ffmpeg
+          curl -L -o ffmpeg_arm.deb "$TERMUX_URL/ffmpeg_8.1.1-1_arm.deb"
+          mkdir -p jni_arm && dpkg-deb -x ffmpeg_arm.deb jni_arm/
+
+          # 整理到 jniLibs
+          mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/jniLibs/armeabi-v7a
+
+          # 复制 ffmpeg 二进制（重命名为 .so 以便 Android 打包为原生库）
+          cp jni_arm64/data/data/com.termux/files/usr/bin/ffmpeg \
+            app/src/main/jniLibs/arm64-v8a/libffmpeg_exec.so
+          cp jni_arm/data/data/com.termux/files/usr/bin/ffmpeg \
+            app/src/main/jniLibs/armeabi-v7a/libffmpeg_exec.so
+
+          # 复制所有 .so 依赖库（libavcodec, libavformat 等）
+          find jni_arm64 -name "*.so*" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
+          find jni_arm -name "*.so*" -exec cp {} app/src/main/jniLibs/armeabi-v7a/ \;
+
+          echo "=== arm64-v8a ===" && ls -lh app/src/main/jniLibs/arm64-v8a/
+          echo "=== armeabi-v7a ===" && ls -lh app/src/main/jniLibs/armeabi-v7a/
 
       - name: Build with Gradle
         run: ./gradlew build

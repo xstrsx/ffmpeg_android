@@ -3,15 +3,11 @@ package com.example.ffmpegterm.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.arthenica.ffmpegkit.FFmpegKit
-import com.arthenica.ffmpegkit.FFmpegKitConfig
-import com.arthenica.ffmpegkit.FFmpegSession
-import com.arthenica.ffmpegkit.FFmpegSessionCompleteCallback
-import com.arthenica.ffmpegkit.LogCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class TerminalViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -27,113 +23,121 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private val _processRunning = MutableStateFlow(false)
     val processRunning: StateFlow<Boolean> = _processRunning
 
-    private val _statusText = MutableStateFlow("FFmpeg 就绪")
+    private val _statusText = MutableStateFlow("正在初始化...")
     val statusText: StateFlow<String> = _statusText
 
-    private var currentSession: FFmpegSession? = null
+    private var currentProcess: Process? = null
+    private var ffmpegPath: String? = null
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            appendLog("[系统] FFmpeg Kit 已就绪")
-            appendLog("[系统] 版本: ${FFmpegKitConfig.getFFmpegVersion()}")
-            _statusText.value = "FFmpeg 就绪 | 工作目录: ${_workingDir.value}"
+            val ctx = getApplication<Application>()
+            val libDir = ctx.applicationInfo.nativeLibraryDir
+            val candidate = File(libDir, "libffmpeg_exec.so")
+            if (candidate.exists() && candidate.canExecute()) {
+                ffmpegPath = candidate.absolutePath
+                _statusText.value = "FFmpeg 就绪 | ${_workingDir.value}"
+            } else {
+                _statusText.value = "FFmpeg 未找到"
+                appendLog("[错误] libffmpeg_exec.so 未在原生库目录找到")
+                appendLog("[提示] 目录: $libDir")
+                appendLog("[提示] 内容: ${File(libDir).listFiles()?.joinToString { it.name } ?: "空"}")
+            }
         }
     }
 
-    /** 执行命令 — 接受完整 ffmpeg 命令行 */
     fun executeCommand(rawCommand: String) {
-        if (_processRunning.value) {
-            appendLog("[提示] 有命令正在运行中，请先停止。")
-            return
-        }
+        if (ffmpegPath == null) { appendLog("[错误] FFmpeg 未就绪"); return }
+        if (_processRunning.value) { appendLog("[提示] 正在运行中"); return }
 
-        // 多行处理
         val merged = rawCommand
-            .replace("\\\n", " ")
-            .replace("\\\r\n", " ")
-            .replace("\n", " ")
-            .replace("\r", " ")
+            .replace("\\\n", " ").replace("\\\r\n", " ")
+            .replace("\n", " ").replace("\r", " ")
         val trimmed = merged.trim().replace(Regex("\\s+"), " ")
         if (trimmed.isEmpty()) return
 
-        // 智能去除 "ffmpeg" 前缀
-        val command = if (trimmed.startsWith("ffmpeg ")) {
-            trimmed.removePrefix("ffmpeg ")
-        } else if (trimmed == "ffmpeg") {
-            "-version"
-        } else {
-            trimmed
-        }
-
+        val command = if (trimmed.startsWith("ffmpeg ")) trimmed.removePrefix("ffmpeg ")
+        else if (trimmed == "ffmpeg") "-version" else trimmed
         val displayCmd = if (trimmed.startsWith("ffmpeg")) trimmed else "ffmpeg $trimmed"
         appendLog("> $displayCmd")
 
         _processRunning.value = true
         _statusText.value = "运行中..."
-
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // 设置工作目录
-                val workDir = _workingDir.value
-                // ffmpeg-kit 不支持直接切换工作目录，用 -y 参数时通过输出路径即可
+                val args = parseArgs(command)
+                val cmd = mutableListOf(ffmpegPath!!); cmd.addAll(args)
+                val pb = ProcessBuilder(cmd)
+                    .directory(File(_workingDir.value))
+                    .redirectErrorStream(false)
+                currentProcess = pb.start()
 
-                val session = FFmpegKit.executeAsync(
-                    command,
-                    { log ->
-                        launch(Dispatchers.Main) {
-                            appendLog(log.message)
-                        }
-                    },
-                    { session ->
-                        launch(Dispatchers.Main) {
-                            currentSession = null
-                            _processRunning.value = false
-                            _statusText.value = "FFmpeg 就绪 | 工作目录: $workDir"
-
-                            val rc = session.returnCode
-                            if (rc.isValueSuccess) {
-                                appendLog("[完成] 退出码: ${rc.value}")
-                            } else {
-                                appendLog("[失败] 退出码: ${rc.value}")
-                                appendLog("[错误] ${session.failStackTrace ?: "未知错误"}")
-                            }
-                        }
+                launch(Dispatchers.IO) {
+                    currentProcess!!.inputStream.bufferedReader().use { r ->
+                        var l = r.readLine()
+                        while (l != null) { launch(Dispatchers.Main) { appendLog(l) }; l = r.readLine() }
                     }
-                )
+                }
+                launch(Dispatchers.IO) {
+                    currentProcess!!.errorStream.bufferedReader().use { r ->
+                        var l = r.readLine()
+                        while (l != null) { launch(Dispatchers.Main) { appendLog(l) }; l = r.readLine() }
+                    }
+                }
 
-                currentSession = session
-
-                // 同步等待执行完成
-                session.returnCode
-                // 注意：由于使用了 complete callback，这里不需要额外处理
-
-            } catch (e: Exception) {
+                val exit = currentProcess!!.waitFor()
+                currentProcess = null
                 launch(Dispatchers.Main) {
                     _processRunning.value = false
-                    _statusText.value = "FFmpeg 就绪 | 工作目录: ${_workingDir.value}"
-                    appendLog("[异常] ${e.message}")
+                    _statusText.value = "FFmpeg 就绪 | ${_workingDir.value}"
+                    appendLog("[完成] 退出码: $exit")
+                }
+            } catch (e: Exception) {
+                currentProcess = null
+                launch(Dispatchers.Main) {
+                    _processRunning.value = false
+                    appendLog("[错误] ${e.message}")
                 }
             }
         }
     }
 
-    /** 强制停止 */
     fun forceStop() {
-        currentSession?.cancel()
-        currentSession = null
-        _processRunning.value = false
-        appendLog("[系统] 进程已强制终止")
+        try { currentProcess?.destroy() } catch (_: Exception) {}
+        currentProcess = null; _processRunning.value = false
     }
-
-    /** 发送 q 键停止（等同 forceStop，ffmpeg-kit 优雅方式） */
     fun stopWithQuit() {
-        forceStop()
+        try {
+            currentProcess?.outputStream?.write("q\n".toByteArray())
+            currentProcess?.outputStream?.flush()
+        } catch (_: Exception) { forceStop() }
+    }
+    fun stopWithCtrlC() = stopWithQuit()
+    fun clearLogs() { _logs.value = emptyList() }
+
+    fun setWorkingDirectory(path: String) {
+        _workingDir.value = path
+        _statusText.value = "FFmpeg 就绪 | $path"
     }
 
-    /** 停止（等同 forceStop） */
-    fun stopWithCtrlC() {
-        forceStop()
+    private fun appendLog(line: String) { _logs.value = _logs.value + line }
+
+    private fun parseArgs(input: String): List<String> {
+        val args = mutableListOf<String>()
+        val buf = StringBuilder()
+        var inQuote = false; var q = ' '
+        for (ch in input) {
+            when {
+                (ch == '"' || ch == '\'') && !inQuote -> { inQuote = true; q = ch }
+                inQuote && ch == q -> { inQuote = false; args.add(buf.toString()); buf.clear() }
+                ch == ' ' && !inQuote -> { if (buf.isNotEmpty()) { args.add(buf.toString()); buf.clear() } }
+                else -> buf.append(ch)
+            }
+        }
+        if (buf.isNotEmpty()) args.add(buf.toString())
+        return args
     }
+}
 
     /** 清空日志 */
     fun clearLogs() {

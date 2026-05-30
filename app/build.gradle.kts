@@ -51,8 +51,7 @@ android {
 }
 
 dependencies {
-    // FFmpeg Kit - 完整编解码器支持，Android 原生
-    implementation("com.arthenica:ffmpeg-kit-full:6.0-2")
+    // FFmpeg 二进制由 CI 从 Termux 下载并放入 jniLibs，Android 自动加载
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.7.10")
