@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">FFmpeg 终端工具</string>
+    <string name="select_directory">请选择工作目录</string>
+    <string name="directory_selected">已选择工作目录</string>
+    <string name="directory_selection_failed">目录选择失败，请重试</string>
+    <string name="command_placeholder">输入 FFmpeg 命令...</string>
+    <string name="stop_process">强制停止进程</string>
+    <string name="graceful_stop">优雅停止进程</string>
+    <string name="paste_command">粘贴命令</string>
+    <string name="enter_command">回车执行命令</string>
+    <string name="error_log_prefix">错误: </string>
+    <string name="process_terminated">进程已终止</string>
+    <string name="process_stopped_gracefully">进程已优雅停止</string>
+    <string name="clipboard_access_denied">无法访问剪贴板，请检查权限</string>
+</resources>

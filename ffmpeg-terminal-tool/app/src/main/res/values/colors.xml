@@ -1,0 +1,11 @@
+<resources>
+    <color name="background">#121212</color>
+    <color name="terminal_text">#E0E0E0</color>
+    <color name="terminal_error">#FF5252</color>
+    <color name="button_background">#1E1E1E</color>
+    <color name="button_pressed">#3A3A3A</color>
+    <color name="button_text">#FFFFFF</color>
+    <color name="input_background">#1E1E1E</color>
+    <color name="input_text">#E0E0E0</color>
+    <color name="input_hint">#B0BEC5</color>
+</resources>
