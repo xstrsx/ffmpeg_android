@@ -49,7 +49,12 @@ class FFmpegProcessManager(private val workingDirectory: File) {
     }
 
     fun isRunning(): Boolean {
-        return process?.isAlive == true
+        return try {
+            process?.exitValue()
+            false // exitValue() succeeded → process has terminated
+        } catch (e: IllegalThreadStateException) {
+            true // process is still running
+        }
     }
 
     fun cleanup() {
