@@ -11,14 +11,14 @@
     <string name="command_input_hint">请输入 FFmpeg 命令</string>
     <string name="command_placeholder">输入 FFmpeg 命令...</string>
     <string name="stop_process">停止进程</string>
-    <string name="graceful_stop">优雅停止</string>
     <string name="force_stop">强制停止</string>
+    <string name="graceful_stop">优雅停止</string>
     <string name="paste_command">粘贴命令</string>
+    <string name="enter_command">回车执行命令</string>
     <string name="error_log">错误日志</string>
     <string name="error_log_prefix">错误: </string>
     <string name="process_terminated">进程已终止</string>
     <string name="process_stopped">进程已停止</string>
     <string name="process_stopped_gracefully">进程已优雅停止</string>
-    <string name="enter_command">回车执行命令</string>
     <string name="clipboard_access_denied">无法访问剪贴板，请检查权限</string>
 </resources>

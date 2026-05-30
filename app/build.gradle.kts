@@ -4,6 +4,7 @@ plugins {
 }
 
 android {
+    namespace = "com.example.ffmpegterm"
     compileSdk = 33
 
     defaultConfig {
