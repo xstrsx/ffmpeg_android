@@ -30,6 +30,10 @@ android {
         jvmTarget = "1.8"
     }
 
+    buildFeatures {
+        viewBinding = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -59,9 +63,6 @@ dependencies {
 
     // Material Design 3
     implementation("com.google.android.material:material:1.9.0")
-
-    // Fragment
-    implementation("androidx.fragment:fragment-ktx:1.6.1")
 
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.1")

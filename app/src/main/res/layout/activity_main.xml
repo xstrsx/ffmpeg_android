@@ -1,72 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background_color"
-    tools:context=".MainActivity">
+    android:background="#121212"
+    android:keepScreenOn="true">
 
+    <!-- 顶部工具栏 -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
+        android:background="@color/colorPrimary"
         app:title="@string/app_name"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
+        app:titleTextColor="#FFFFFF" />
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/fragment_container"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <EditText
-        android:id="@+id/command_input"
+    <!-- 状态信息 -->
+    <TextView
+        android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/command_hint"
-        android:padding="16dp"
-        android:background="@drawable/edit_text_background"
-        android:textColor="@color/input_text"
-        android:textColorHint="@color/input_hint" />
+        android:background="#1A1A2E"
+        android:padding="8dp"
+        android:text="正在初始化..."
+        android:textColor="#B0BEC5"
+        android:textSize="12sp"
+        android:fontFamily="monospace" />
 
+    <!-- 日志输出区域 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/logRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#0D0D0D"
+        android:scrollbars="vertical" />
+
+    <!-- 命令输入区 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="4dp">
+        android:padding="4dp"
+        android:background="#1A1A2E">
 
-        <Button
-            android:id="@+id/btn_stop_ctrl_c"
+        <EditText
+            android:id="@+id/commandInput"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/stop_ctrl_c"
-            android:layout_margin="2dp" />
+            android:background="@drawable/edit_text_background"
+            android:hint="FFmpeg 参数 (如: -i input.mp4 output.avi)"
+            android:inputType="text"
+            android:imeOptions="actionSend"
+            android:padding="12dp"
+            android:textColor="#E0E0E0"
+            android:textColorHint="#666666"
+            android:textSize="14sp"
+            android:fontFamily="monospace" />
 
         <Button
-            android:id="@+id/btn_stop_q"
-            android:layout_width="0dp"
+            android:id="@+id/btnRun"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/stop_q"
-            android:layout_margin="2dp" />
+            android:layout_marginStart="4dp"
+            android:text="运行"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp" />
 
         <Button
-            android:id="@+id/btn_execute"
-            android:layout_width="0dp"
+            android:id="@+id/btnPaste"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/execute"
-            android:layout_margin="2dp" />
-
-        <Button
-            android:id="@+id/btn_paste"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/paste"
-            android:layout_margin="2dp" />
+            android:layout_marginStart="2dp"
+            android:text="粘贴"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp" />
     </LinearLayout>
+
+    <!-- 控制按钮区 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:background="#1A1A2E">
+
+        <Button
+            android:id="@+id/btnStopCtrlC"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_margin="2dp"
+            android:text="Ctrl+C"
+            android:textSize="12sp"
+            android:enabled="false"
+            style="@style/Widget.AppCompat.Button.Colored" />
+
+        <Button
+            android:id="@+id/btnStopQ"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_margin="2dp"
+            android:text="q 退出"
+            android:textSize="12sp"
+            android:enabled="false"
+            style="@style/Widget.AppCompat.Button.Colored" />
+
+        <Button
+            android:id="@+id/btnForceStop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_margin="2dp"
+            android:text="强制终止"
+            android:textSize="12sp"
+            android:enabled="false"
+            style="@style/Widget.AppCompat.Button.Colored" />
+
+        <Button
+            android:id="@+id/btnClear"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_margin="2dp"
+            android:text="清屏"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btnDir"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_margin="2dp"
+            android:text="目录"
+            android:textSize="12sp" />
+    </LinearLayout>
+
 </LinearLayout>

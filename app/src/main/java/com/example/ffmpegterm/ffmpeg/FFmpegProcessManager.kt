@@ -1,64 +1,132 @@
 package com.example.ffmpegterm.ffmpeg
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.File
-import java.io.IOException
 import java.io.InputStream
-import java.io.OutputStream
 
-class FFmpegProcessManager(private val workingDirectory: File) {
+/**
+ * 管理 FFmpeg 进程的生命周期、输入输出流。
+ */
+class FFmpegProcessManager {
 
     private var process: Process? = null
-    private var outputStream: OutputStream? = null
+    private var outputJob: Job? = null
+    private var errorJob: Job? = null
 
-    suspend fun startFFmpeg(command: String) {
-        withContext(Dispatchers.IO) {
-            try {
-                val processBuilder = ProcessBuilder(command.split(" "))
-                processBuilder.directory(workingDirectory)
-                process = processBuilder.start()
-                outputStream = process?.outputStream
+    @Volatile
+    var isRunning: Boolean = false
+        private set
 
-                readProcessOutput(process?.inputStream)
-                readProcessOutput(process?.errorStream)
-            } catch (e: IOException) {
-                e.printStackTrace()
+    /**
+     * 执行 FFmpeg 命令。
+     * @param ffmpegPath ffmpeg 二进制路径
+     * @param args FFmpeg 参数（不含"ffmpeg"自身）
+     * @param workingDir 工作目录
+     * @param onOutput 标准输出回调
+     * @param onError 标准错误回调（FFmpeg 的日志信息在 stderr）
+     * @param onComplete 进程结束回调 (exitCode)
+     */
+    suspend fun execute(
+        ffmpegPath: String,
+        args: List<String>,
+        workingDir: File,
+        onOutput: (String) -> Unit,
+        onError: (String) -> Unit,
+        onComplete: (Int) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val cmd = mutableListOf(ffmpegPath)
+            cmd.addAll(args)
+
+            val pb = ProcessBuilder(cmd)
+                .directory(workingDir)
+                .redirectErrorStream(false)
+
+            process = pb.start()
+            isRunning = true
+
+            val scope = CoroutineScope(Dispatchers.IO)
+
+            // 读取 stdout
+            outputJob = scope.launch {
+                streamReader(process!!.inputStream, onOutput)
+            }
+
+            // 读取 stderr（FFmpeg 的进度/日志信息）
+            errorJob = scope.launch {
+                streamReader(process!!.errorStream, onError)
+            }
+
+            // 等待进程结束
+            val exitCode = withContext(Dispatchers.IO) {
+                process!!.waitFor()
+            }
+
+            outputJob?.join()
+            errorJob?.join()
+            scope.cancel()
+
+            isRunning = false
+            process = null
+
+            withContext(Dispatchers.Main) {
+                onComplete(exitCode)
+            }
+        } catch (e: Exception) {
+            isRunning = false
+            process = null
+            withContext(Dispatchers.Main) {
+                onError("[ERROR] ${e.message}")
+                onComplete(-1)
             }
         }
     }
 
-    private suspend fun readProcessOutput(inputStream: InputStream?) {
-        inputStream?.let {
-            withContext(Dispatchers.IO) {
-                it.bufferedReader().forEachLine { line ->
-                    // Handle the output line (e.g., send to UI)
-                    println(line) // Replace with actual logging mechanism
+    /** 发送 q 键（优雅退出） */
+    fun sendQuit() {
+        try {
+            process?.outputStream?.write("q\n".toByteArray())
+            process?.outputStream?.flush()
+        } catch (_: Exception) {}
+    }
+
+    /** 发送 SIGINT（Ctrl+C） */
+    fun sendCtrlC() {
+        try {
+            process?.outputStream?.write("\u0003".toByteArray())
+            process?.outputStream?.flush()
+        } catch (_: Exception) {}
+    }
+
+    /** 强制终止 */
+    fun forceStop() {
+        try {
+            process?.destroyForcibly()
+        } catch (_: Exception) {}
+        isRunning = false
+        process = null
+    }
+
+    /** 清理资源 */
+    fun cleanup() {
+        outputJob?.cancel()
+        errorJob?.cancel()
+        forceStop()
+    }
+
+    private suspend fun streamReader(input: InputStream, callback: (String) -> Unit) {
+        try {
+            input.bufferedReader().use { reader ->
+                var line = reader.readLine()
+                while (line != null) {
+                    withContext(Dispatchers.Main) {
+                        callback(line)
+                    }
+                    line = reader.readLine()
                 }
             }
+        } catch (_: Exception) {
+            // 流被关闭时忽略
         }
-    }
-
-    fun stopFFmpegGracefully() {
-        outputStream?.write("q".toByteArray())
-        outputStream?.flush()
-    }
-
-    fun stopFFmpegForcefully() {
-        process?.destroy()
-    }
-
-    fun isRunning(): Boolean {
-        return try {
-            process?.exitValue()
-            false // exitValue() succeeded → process has terminated
-        } catch (e: IllegalThreadStateException) {
-            true // process is still running
-        }
-    }
-
-    fun cleanup() {
-        process?.destroy()
-        outputStream?.close()
     }
 }
