@@ -19,7 +19,8 @@ class FFmpegProcessManager {
 
     /**
      * 执行 FFmpeg 命令。
-     * Android 上通过 sh -c 运行可执行文件更可靠（避免 SELinux 阻止直接 exec）。
+     * 优先尝试直接 exec（避免 sh 的 seccomp 限制导致 "Bad system call"），
+     * 失败则回退到 sh -c（兼容某些 SELinux 严格设备）。
      */
     suspend fun execute(
         ffmpegPath: String,
@@ -30,20 +31,39 @@ class FFmpegProcessManager {
         onComplete: (Int) -> Unit
     ) = withContext(Dispatchers.IO) {
         try {
-            // 通过 shell 执行：sh -c '/path/to/ffmpeg arg1 "arg 2" ...'
-            // 这样可以避免部分 Android 设备直接 exec 时的 Permission denied
-            val fullCommand = buildString {
-                append("'$ffmpegPath'")
-                for (arg in args) {
-                    append(" '${arg.replace("'", "'\\''")}'")
-                }
+            // 构建完整命令行：[ffmpeg路径, arg1, arg2, ...]
+            val cmd = mutableListOf(ffmpegPath)
+            cmd.addAll(args)
+
+            // 环境变量（帮助静态二进制绕过 Android seccomp 限制）
+            val env = ProcessBuilder(cmd).environment().apply {
+                put("LD_PRELOAD", "")
+                put("PROOT_NO_SECCOMP", "1")
             }
 
-            val pb = ProcessBuilder("sh", "-c", fullCommand)
+            // 方案1: 直接 ProcessBuilder exec
+            var pb = ProcessBuilder(cmd)
                 .directory(workingDir)
                 .redirectErrorStream(false)
+            pb.environment().putAll(env)
 
-            process = pb.start()
+            try {
+                process = pb.start()
+            } catch (e: Exception) {
+                // 方案2: 通过 sh -c 重试
+                val fullCommand = buildString {
+                    append("'$ffmpegPath'")
+                    for (arg in args) {
+                        append(" '${arg.replace("'", "'\\''")}'")
+                    }
+                }
+                pb = ProcessBuilder("sh", "-c", fullCommand)
+                    .directory(workingDir)
+                    .redirectErrorStream(false)
+                pb.environment().putAll(env)
+                process = pb.start()
+            }
+
             isRunning = true
 
             val scope = CoroutineScope(Dispatchers.IO)

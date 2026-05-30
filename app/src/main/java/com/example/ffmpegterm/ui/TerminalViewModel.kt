@@ -73,8 +73,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** 执行 FFmpeg 命令 */
-    fun executeCommand(command: String) {
+    /** 执行命令 — 接受完整 ffmpeg 命令行，支持 \ 续行 */
+    fun executeCommand(rawCommand: String) {
         if (!_ffmpegReady.value) {
             appendLog("[错误] FFmpeg 尚未就绪，无法执行命令。")
             return
@@ -83,14 +83,29 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             appendLog("[提示] 有命令正在运行中，请先停止。")
             return
         }
-        val trimmed = command.trim()
+
+        // 多行处理：\ 续行符 → 拼接；普通换行 → 空格
+        val merged = rawCommand
+            .replace("\\\n", " ")
+            .replace("\\\r\n", " ")
+            .replace("\n", " ")
+            .replace("\r", " ")
+        val trimmed = merged.trim().replace(Regex("\\s+"), " ")
         if (trimmed.isEmpty()) return
 
         val ffmpegPath = FFmpegBinaryInstaller.installedPath ?: return
 
-        // 解析参数（简单按空格分割，支持引号）
-        val args = parseArgs(trimmed)
-        appendLog("> $trimmed")
+        // 智能解析：去除可选的 "ffmpeg" 前缀
+        val args = if (trimmed.startsWith("ffmpeg ")) {
+            parseArgs(trimmed.removePrefix("ffmpeg ").trim())
+        } else if (trimmed == "ffmpeg") {
+            listOf("-version")
+        } else {
+            parseArgs(trimmed)
+        }
+
+        val displayCmd = if (trimmed.startsWith("ffmpeg")) trimmed else "ffmpeg $trimmed"
+        appendLog("> $displayCmd")
 
         _processRunning.value = true
         _statusText.value = "运行中..."

@@ -177,14 +177,6 @@ class MainActivity : AppCompatActivity() {
                 binding.commandInput.setText(text)
             }
         }
-
-        // 回车键执行命令
-        binding.commandInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
-                binding.btnRun.performClick()
-                true
-            } else false
-        }
     }
 
     private fun observeViewModel() {
