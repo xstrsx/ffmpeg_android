@@ -101,7 +101,7 @@ class FFmpegProcessManager {
     /** 强制终止 */
     fun forceStop() {
         try {
-            process?.destroyForcibly()
+            process?.destroy()
         } catch (_: Exception) {}
         isRunning = false
         process = null
