@@ -1,7 +1,6 @@
 package com.example.ffmpegterm
 
 import android.app.Application
-import android.content.Context
 import com.example.ffmpegterm.ffmpeg.FFmpegBinaryInstaller
 
 class App : Application() {
@@ -12,7 +11,6 @@ class App : Application() {
     }
 
     private fun initializeFFmpeg() {
-        val installer = FFmpegBinaryInstaller(applicationContext)
-        installer.installFFmpegBinary()
+        FFmpegBinaryInstaller.installFFmpegBinary(applicationContext)
     }
 }

@@ -15,20 +15,11 @@
         app:title="@string/app_name"
         app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
 
-    <ScrollView
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/fragment_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <TextView
-            android:id="@+id/log_output"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:textColor="@color/log_text_color"
-            android:background="@color/log_background_color"
-            android:fontFamily="monospace" />
-    </ScrollView>
+        android:layout_weight="1" />
 
     <EditText
         android:id="@+id/command_input"
@@ -36,39 +27,46 @@
         android:layout_height="wrap_content"
         android:hint="@string/command_hint"
         android:padding="16dp"
-        android:background="@drawable/edit_text_background" />
+        android:background="@drawable/edit_text_background"
+        android:textColor="@color/input_text"
+        android:textColorHint="@color/input_hint" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="4dp">
 
         <Button
             android:id="@+id/btn_stop_ctrl_c"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/stop_ctrl_c" />
+            android:text="@string/stop_ctrl_c"
+            android:layout_margin="2dp" />
 
         <Button
             android:id="@+id/btn_stop_q"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/stop_q" />
+            android:text="@string/stop_q"
+            android:layout_margin="2dp" />
 
         <Button
             android:id="@+id/btn_execute"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/execute" />
+            android:text="@string/execute"
+            android:layout_margin="2dp" />
 
         <Button
             android:id="@+id/btn_paste"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/paste" />
+            android:text="@string/paste"
+            android:layout_margin="2dp" />
     </LinearLayout>
 </LinearLayout>

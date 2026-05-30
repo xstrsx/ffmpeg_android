@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">FFmpeg 终端工具</string>
+    <string name="command_hint">输入 FFmpeg 命令...</string>
+    <string name="stop_ctrl_c">Ctrl+C 停止</string>
+    <string name="stop_q">Q 键停止</string>
+    <string name="execute">执行</string>
+    <string name="paste">粘贴</string>
     <string name="select_directory">请选择工作目录</string>
     <string name="directory_selected">已选择工作目录</string>
     <string name="directory_selection_failed">目录选择失败，请重试</string>
