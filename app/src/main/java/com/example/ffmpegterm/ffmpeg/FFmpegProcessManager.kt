@@ -19,12 +19,7 @@ class FFmpegProcessManager {
 
     /**
      * 执行 FFmpeg 命令。
-     * @param ffmpegPath ffmpeg 二进制路径
-     * @param args FFmpeg 参数（不含"ffmpeg"自身）
-     * @param workingDir 工作目录
-     * @param onOutput 标准输出回调
-     * @param onError 标准错误回调（FFmpeg 的日志信息在 stderr）
-     * @param onComplete 进程结束回调 (exitCode)
+     * Android 上通过 sh -c 运行可执行文件更可靠（避免 SELinux 阻止直接 exec）。
      */
     suspend fun execute(
         ffmpegPath: String,
@@ -35,10 +30,16 @@ class FFmpegProcessManager {
         onComplete: (Int) -> Unit
     ) = withContext(Dispatchers.IO) {
         try {
-            val cmd = mutableListOf(ffmpegPath)
-            cmd.addAll(args)
+            // 通过 shell 执行：sh -c '/path/to/ffmpeg arg1 "arg 2" ...'
+            // 这样可以避免部分 Android 设备直接 exec 时的 Permission denied
+            val fullCommand = buildString {
+                append("'$ffmpegPath'")
+                for (arg in args) {
+                    append(" '${arg.replace("'", "'\\''")}'")
+                }
+            }
 
-            val pb = ProcessBuilder(cmd)
+            val pb = ProcessBuilder("sh", "-c", fullCommand)
                 .directory(workingDir)
                 .redirectErrorStream(false)
 
@@ -82,7 +83,7 @@ class FFmpegProcessManager {
         }
     }
 
-    /** 发送 q 键（优雅退出） */
+    /** 发送 q 键（FFmpeg 优雅退出） */
     fun sendQuit() {
         try {
             process?.outputStream?.write("q\n".toByteArray())
@@ -90,12 +91,9 @@ class FFmpegProcessManager {
         } catch (_: Exception) {}
     }
 
-    /** 发送 SIGINT（Ctrl+C） */
+    /** 发送 q 键停止（等同 Ctrl+C 效果，FFmpeg 会优雅退出并保留输出文件） */
     fun sendCtrlC() {
-        try {
-            process?.outputStream?.write("\u0003".toByteArray())
-            process?.outputStream?.flush()
-        } catch (_: Exception) {}
+        sendQuit()
     }
 
     /** 强制终止 */

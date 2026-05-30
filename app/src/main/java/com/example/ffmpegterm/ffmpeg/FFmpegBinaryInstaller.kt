@@ -42,6 +42,11 @@ object FFmpegBinaryInstaller {
         return try {
             // 使用 getDir() 创建 app 私有可执行目录
             val targetDir = context.getDir("ffmpeg_bin", Context.MODE_PRIVATE)
+
+            // 目录自身也需要可执行权限（进入目录）
+            targetDir.setReadable(true, false)
+            targetDir.setExecutable(true, false)
+
             val targetFile = File(targetDir, BINARY_NAME)
 
             // 如果已有且可执行，无需重新安装
@@ -63,21 +68,33 @@ object FFmpegBinaryInstaller {
                 }
             }
 
-            // 设置可执行权限 — 两步确保:
+            // 验证文件大小（确保复制完整）
+            if (targetFile.length() == 0L) {
+                status = Status.FAILED
+                return false
+            }
+
+            // 设置可执行权限 — 三步确保:
             // 1. Java API
             targetFile.setReadable(true, false)
             targetFile.setExecutable(true, false)
 
-            // 2. Shell chmod 兜底（解决部分设备 setExecutable 无效的问题）
+            // 2. Shell chmod 兜底
+            try {
+                val chmod = Runtime.getRuntime().exec(
+                    arrayOf("chmod", "755", targetFile.absolutePath)
+                )
+                chmod.waitFor()
+            } catch (_: Exception) {}
+
+            // 3. 再检查，失败则对整个目录做 chmod -R
             if (!targetFile.canExecute()) {
                 try {
-                    val chmod = Runtime.getRuntime().exec(
-                        arrayOf("chmod", "755", targetFile.absolutePath)
+                    val chmodR = Runtime.getRuntime().exec(
+                        arrayOf("chmod", "-R", "755", targetDir.absolutePath)
                     )
-                    chmod.waitFor()
-                } catch (_: Exception) {
-                    // chmod 失败 — 继续尝试，有些设备 Java API 就已足够
-                }
+                    chmodR.waitFor()
+                } catch (_: Exception) {}
             }
 
             // 最终验证
