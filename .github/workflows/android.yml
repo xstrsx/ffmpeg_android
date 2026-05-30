@@ -22,8 +22,11 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Grant execute permission to gradlew
-        run: chmod +x ./gradlew
+      - name: Generate Gradle Wrapper
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq gradle
+          gradle wrapper --gradle-version 7.4.2
+          chmod +x ./gradlew
 
       - name: Build with Gradle
         run: ./gradlew build
