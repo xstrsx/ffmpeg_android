@@ -139,20 +139,3 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     }
 }
 
-    /** 清空日志 */
-    fun clearLogs() {
-        _logs.value = emptyList()
-    }
-
-    /** 设置工作目录 */
-    fun setWorkingDirectory(path: String) {
-        _workingDir.value = path
-        _statusText.value = "FFmpeg 就绪 | 工作目录: $path"
-        appendLog("[系统] 工作目录切换至: $path")
-    }
-
-    private fun appendLog(line: String) {
-        _logs.value = _logs.value + line
-    }
-}
-

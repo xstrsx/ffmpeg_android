@@ -49,15 +49,6 @@ class MainActivity : AppCompatActivity() {
             else -> uri.toString()
         }
     }
-            docId.startsWith("primary:") -> {
-                "/storage/emulated/0/" + docId.removePrefix("primary:")
-            }
-            docId.startsWith("home:") -> {
-                "/storage/emulated/0/" + docId.removePrefix("home:")
-            }
-            else -> uri.toString()
-        }
-    }
 
     private fun setupLogList() {
         logAdapter = LogAdapter()
