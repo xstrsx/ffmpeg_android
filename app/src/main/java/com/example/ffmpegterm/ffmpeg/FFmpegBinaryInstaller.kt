@@ -5,61 +5,76 @@ import java.io.File
 import java.io.FileOutputStream
 
 /**
- * 管理 FFmpeg 二进制文件的安装。
- * 首次启动时从 APK 内置 assets 中提取到内部存储，无需联网。
+ * 管理 FFmpeg 二进制文件的定位与安装。
+ *
+ * 策略（按优先级）：
+ * 1. jniLibs 原生库目录 — 系统自动解压到此，保证可执行（Android 16+ 推荐）
+ * 2. assets 复制到 getDir() — 兼容旧版，需 chmod
  */
 object FFmpegBinaryInstaller {
 
     private const val BINARY_NAME = "ffmpeg"
+    private const val JNI_BINARY_NAME = "libffmpeg_exec.so"
     private const val ASSET_PATH = "ffmpeg"
 
-    /** 已安装的 ffmpeg 二进制路径，null 表示尚未安装 */
     @Volatile
     var installedPath: String? = null
         private set
 
-    /** 安装状态 */
     enum class Status { NOT_INSTALLED, INSTALLING, READY, FAILED }
 
     @Volatile
     var status: Status = Status.NOT_INSTALLED
         private set
 
-    /**
-     * 将 ffmpeg 二进制从 assets 安装到内部存储。
-     * 如果已安装且可执行则跳过。
-     * 使用 getDir() 确保目标目录支持执行权限。
-     */
     fun install(context: Context): Boolean {
-        // 已就绪则直接返回
         if (status == Status.READY && installedPath != null) {
             val f = File(installedPath!!)
             if (f.exists() && f.canExecute()) return true
         }
-
         status = Status.INSTALLING
 
-        return try {
-            // 使用 getDir() 创建 app 私有可执行目录
-            val targetDir = context.getDir("ffmpeg_bin", Context.MODE_PRIVATE)
+        // 方案1: 从 jniLibs 原生库目录加载（Android 系统保证可执行）
+        val nativePath = findInNativeLibDir(context)
+        if (nativePath != null) {
+            installedPath = nativePath
+            status = Status.READY
+            return true
+        }
 
-            // 目录自身也需要可执行权限（进入目录）
+        // 方案2: 从 assets 复制到 getDir()
+        return installFromAssets(context)
+    }
+
+    /** 在原生库目录中查找 ffmpeg 二进制 */
+    private fun findInNativeLibDir(context: Context): String? {
+        return try {
+            val libDir = context.applicationInfo.nativeLibraryDir
+            val file = File(libDir, JNI_BINARY_NAME)
+            if (file.exists() && file.canExecute() && isElfFile(file)) {
+                file.absolutePath
+            } else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** 从 assets 复制二进制文件 */
+    private fun installFromAssets(context: Context): Boolean {
+        return try {
+            val targetDir = context.getDir("ffmpeg_bin", Context.MODE_PRIVATE)
             targetDir.setReadable(true, false)
             targetDir.setExecutable(true, false)
 
             val targetFile = File(targetDir, BINARY_NAME)
-
-            // 如果已有且可执行，无需重新安装
             if (targetFile.exists() && targetFile.canExecute()) {
                 installedPath = targetFile.absolutePath
                 status = Status.READY
                 return true
             }
 
-            // 清理旧文件
             targetFile.delete()
 
-            // 从 assets 复制二进制
             val arch = detectArchitecture()
             val assetName = "$ASSET_PATH/$arch/$BINARY_NAME"
             context.assets.open(assetName).use { input ->
@@ -68,36 +83,28 @@ object FFmpegBinaryInstaller {
                 }
             }
 
-            // 验证文件大小（确保复制完整）
-            if (targetFile.length() == 0L) {
+            if (targetFile.length() < 1024 || !isElfFile(targetFile)) {
+                targetFile.delete()
                 status = Status.FAILED
                 return false
             }
 
-            // 设置可执行权限 — 三步确保:
-            // 1. Java API
+            // 权限：Java API + shell chmod 双保险
             targetFile.setReadable(true, false)
             targetFile.setExecutable(true, false)
 
-            // 2. Shell chmod 兜底
             try {
-                val chmod = Runtime.getRuntime().exec(
-                    arrayOf("chmod", "755", targetFile.absolutePath)
-                )
-                chmod.waitFor()
+                val p = Runtime.getRuntime().exec(arrayOf("chmod", "755", targetFile.absolutePath))
+                p.waitFor()
             } catch (_: Exception) {}
 
-            // 3. 再检查，失败则对整个目录做 chmod -R
             if (!targetFile.canExecute()) {
                 try {
-                    val chmodR = Runtime.getRuntime().exec(
-                        arrayOf("chmod", "-R", "755", targetDir.absolutePath)
-                    )
-                    chmodR.waitFor()
+                    val p = Runtime.getRuntime().exec(arrayOf("chmod", "-R", "755", targetDir.absolutePath))
+                    p.waitFor()
                 } catch (_: Exception) {}
             }
 
-            // 最终验证
             if (!targetFile.canExecute()) {
                 status = Status.FAILED
                 return false
@@ -114,8 +121,7 @@ object FFmpegBinaryInstaller {
     }
 
     private fun detectArchitecture(): String {
-        val abis = android.os.Build.SUPPORTED_ABIS
-        for (abi in abis) {
+        for (abi in android.os.Build.SUPPORTED_ABIS) {
             when {
                 abi.startsWith("arm64") -> return "arm64-v8a"
                 abi.startsWith("armeabi") -> return "armeabi-v7a"
@@ -124,8 +130,26 @@ object FFmpegBinaryInstaller {
             }
         }
         throw UnsupportedOperationException(
-            "Unsupported CPU architecture: ${abis.joinToString()}"
+            "Unsupported CPU architecture: ${android.os.Build.SUPPORTED_ABIS.joinToString()}"
         )
     }
+
+    /** 检查文件是否为有效的 ELF 二进制（魔数 0x7F 'E' 'L' 'F'） */
+    private fun isElfFile(file: File): Boolean {
+        return try {
+            file.inputStream().use {
+                val magic = ByteArray(4)
+                if (it.read(magic) == 4) {
+                    magic[0] == 0x7f.toByte() &&
+                        magic[1] == 'E'.code.toByte() &&
+                        magic[2] == 'L'.code.toByte() &&
+                        magic[3] == 'F'.code.toByte()
+                } else false
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
 }
+
 

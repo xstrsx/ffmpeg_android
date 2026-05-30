@@ -44,16 +44,31 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     private fun initializeFFmpeg() {
         viewModelScope.launch(Dispatchers.IO) {
-            _statusText.value = "正在准备 FFmpeg..."
+            _statusText.value = "正在定位 FFmpeg 二进制..."
             val ok = FFmpegBinaryInstaller.install(getApplication())
             if (ok) {
                 _ffmpegReady.value = true
                 _statusText.value = "FFmpeg 就绪 | 工作目录: ${_workingDir.value}"
-                appendLog("[系统] FFmpeg 已就绪，文件路径: ${FFmpegBinaryInstaller.installedPath}")
+                appendLog("[系统] FFmpeg 已就绪")
+                appendLog("[系统] 路径: ${FFmpegBinaryInstaller.installedPath}")
             } else {
                 _ffmpegReady.value = false
-                _statusText.value = "FFmpeg 安装失败！"
-                appendLog("[错误] FFmpeg 二进制文件安装失败，请检查 assets 目录。")
+                _statusText.value = "FFmpeg 未找到！请放置二进制文件。"
+                appendLog("========================================")
+                appendLog("[错误] 未找到有效的 FFmpeg 二进制文件！")
+                appendLog("")
+                appendLog("请将 Android 版 ffmpeg 二进制放入以下位置之一：")
+                appendLog("  1. jniLibs/<架构>/libffmpeg_exec.so（推荐）")
+                appendLog("     arm64-v8a: app/src/main/jniLibs/arm64-v8a/")
+                appendLog("     armeabi-v7a: app/src/main/jniLibs/armeabi-v7a/")
+                appendLog("  2. assets/ffmpeg/<架构>/ffmpeg（备用）")
+                appendLog("     arm64-v8a: app/src/main/assets/ffmpeg/arm64-v8a/")
+                appendLog("     armeabi-v7a: app/src/main/assets/ffmpeg/armeabi-v7a/")
+                appendLog("")
+                appendLog("可从以下渠道获取预编译二进制：")
+                appendLog("  https://github.com/nicknisi/ffmpeg-android")
+                appendLog("  https://johnvansickle.com/ffmpeg/ (选 arm64/armv7)")
+                appendLog("========================================")
             }
         }
     }

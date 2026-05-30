@@ -9,3 +9,6 @@
 .cxx
 local.properties
 /app/build
+
+# 不要忽略 jniLibs 里的原生库
+!app/src/main/jniLibs/**/*.so
